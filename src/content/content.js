@@ -252,6 +252,9 @@
         }
 
         async captureImgElement(img) {
+            // 首先确保图片已完全加载
+            await this.waitForImageLoad(img);
+
             return new Promise((resolve, reject) => {
                 try {
                     // 方法1：直接从页面上已渲染的img元素绘制到canvas
@@ -305,6 +308,46 @@
                 } catch (error) {
                     logger.error('图片捕获失败', error);
                     reject(error);
+                }
+            });
+        }
+
+        /**
+         * 等待图片加载完成
+         */
+        async waitForImageLoad(img) {
+            // 如果图片已经加载完成
+            if (img.complete && img.naturalWidth > 0) {
+                return Promise.resolve();
+            }
+
+            // 如果是data URL，直接返回
+            if (img.src && img.src.startsWith('data:')) {
+                return Promise.resolve();
+            }
+
+            logger.info('等待图片加载完成...');
+
+            return new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('图片加载超时'));
+                }, 5000);
+
+                img.onload = () => {
+                    clearTimeout(timeout);
+                    logger.info('图片加载完成');
+                    resolve();
+                };
+
+                img.onerror = () => {
+                    clearTimeout(timeout);
+                    reject(new Error('图片加载失败'));
+                };
+
+                // 如果图片已经在加载过程中完成了
+                if (img.complete && img.naturalWidth > 0) {
+                    clearTimeout(timeout);
+                    resolve();
                 }
             });
         }
@@ -377,13 +420,17 @@
         }
 
         highlight(captchaInfo) {
-            captchaInfo.element.style.outline = '3px solid #4CAF50';
-            captchaInfo.element.style.outlineOffset = '2px';
+            if (captchaInfo && captchaInfo.element) {
+                captchaInfo.element.style.outline = '3px solid #4CAF50';
+                captchaInfo.element.style.outlineOffset = '2px';
+            }
         }
 
         unhighlight(captchaInfo) {
-            captchaInfo.element.style.outline = '';
-            captchaInfo.element.style.outlineOffset = '';
+            if (captchaInfo && captchaInfo.element) {
+                captchaInfo.element.style.outline = '';
+                captchaInfo.element.style.outlineOffset = '';
+            }
         }
 
         getDetectedCaptchas() {
@@ -554,11 +601,31 @@
 
             if (!captcha) throw new Error('未找到验证码');
 
+            // 检查元素是否仍然存在于DOM中
+            if (!document.body.contains(captcha.element)) {
+                throw new Error('验证码元素已不存在，请重新扫描');
+            }
+
             currentCaptcha = captcha;
             detector.highlight(captcha);
 
+            // 等待一小段时间确保DOM完全渲染
+            await new Promise(resolve => setTimeout(resolve, 100));
+
             logger.info('开始捕获验证码图像...', { type: captcha.type, id: captcha.id });
+
+            // 确保元素可见
+            const rect = captcha.element.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) {
+                throw new Error('验证码元素不可见');
+            }
+
             const imageData = await detector.captureImage(captcha);
+
+            // 验证图像数据有效性
+            if (!imageData || imageData.length < 100) {
+                throw new Error('图像数据无效，请重试');
+            }
 
             // 调试输出：显示图像数据信息
             logger.info('图像捕获完成', {
@@ -593,6 +660,9 @@
             }
         } catch (error) {
             logger.error('识别失败', error);
+            if (currentCaptcha) {
+                detector.unhighlight(currentCaptcha);
+            }
             sendResponse({ success: false, error: error.message });
         } finally {
             isProcessing = false;
@@ -906,7 +976,7 @@
     /**
      * 应用网站规则选择元素
      */
-    function handleApplySiteRule(selector, sendResponse) {
+    async function handleApplySiteRule(selector, sendResponse) {
         try {
             const element = document.querySelector(selector);
 
@@ -915,7 +985,18 @@
                 return;
             }
 
+            // 如果是图片元素，等待加载完成
+            if (element.tagName === 'IMG') {
+                await waitForElementLoad(element);
+            }
+
             const rect = element.getBoundingClientRect();
+
+            // 确保元素可见
+            if (rect.width === 0 || rect.height === 0) {
+                sendResponse({ success: false, error: '元素不可见' });
+                return;
+            }
 
             currentCaptcha = {
                 type: element.tagName.toLowerCase() === 'img' ? 'image' :
@@ -943,7 +1024,73 @@
                 }
             });
         } catch (error) {
+            logger.error('应用规则失败', error);
             sendResponse({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * 等待元素加载完成
+     */
+    async function waitForElementLoad(element) {
+        // 如果是图片元素
+        if (element.tagName === 'IMG') {
+            // 已经加载完成
+            if (element.complete && element.naturalWidth > 0) {
+                return;
+            }
+
+            // data URL 不需要等待
+            if (element.src && element.src.startsWith('data:')) {
+                return;
+            }
+
+            logger.info('等待验证码图片加载...');
+
+            return new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    // 超时了但图片可能已经加载，检查一下
+                    if (element.complete && element.naturalWidth > 0) {
+                        resolve();
+                    } else {
+                        reject(new Error('图片加载超时'));
+                    }
+                }, 5000);
+
+                const checkComplete = () => {
+                    if (element.complete && element.naturalWidth > 0) {
+                        clearTimeout(timeout);
+                        logger.info('验证码图片加载完成');
+                        resolve();
+                    }
+                };
+
+                element.addEventListener('load', () => {
+                    clearTimeout(timeout);
+                    logger.info('验证码图片加载完成');
+                    resolve();
+                }, { once: true });
+
+                element.addEventListener('error', () => {
+                    clearTimeout(timeout);
+                    reject(new Error('图片加载失败'));
+                }, { once: true });
+
+                // 立即检查一次
+                checkComplete();
+
+                // 定期检查（有些情况下load事件可能不触发）
+                const interval = setInterval(() => {
+                    if (element.complete && element.naturalWidth > 0) {
+                        clearInterval(interval);
+                        clearTimeout(timeout);
+                        resolve();
+                    }
+                }, 100);
+
+                // 5秒后停止检查
+                setTimeout(() => clearInterval(interval), 5000);
+            });
         }
     }
 

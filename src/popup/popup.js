@@ -21,7 +21,6 @@ const elements = {
     ruleSection: null,
     ruleText: null,
     btnSettings: null,
-    btnScan: null,
     btnManual: null,
     btnRecognize: null,
     btnFill: null,
@@ -56,7 +55,6 @@ async function init() {
     elements.ruleSection = document.getElementById('rule-section');
     elements.ruleText = document.getElementById('rule-text');
     elements.btnSettings = document.getElementById('btn-settings');
-    elements.btnScan = document.getElementById('btn-scan');
     elements.btnManual = document.getElementById('btn-manual');
     elements.btnRecognize = document.getElementById('btn-recognize');
     elements.btnFill = document.getElementById('btn-fill');
@@ -70,7 +68,6 @@ async function init() {
 
     // 绑定事件
     elements.btnSettings.addEventListener('click', openSettings);
-    elements.btnScan.addEventListener('click', scanPage);
     elements.btnManual.addEventListener('click', manualSelect);
     elements.btnRecognize.addEventListener('click', recognizeCaptcha);
     elements.btnFill.addEventListener('click', fillCaptcha);
@@ -195,9 +192,20 @@ async function applySiteRule(tabId, selector) {
         });
 
         if (response.success) {
-            updateCaptchaInfo(response.captcha);
-            elements.btnRecognize.disabled = false;
-            showSuccess('已自动定位验证码');
+            // 应用规则后，再执行一次扫描确保状态完整
+            const scanResponse = await chrome.tabs.sendMessage(tabId, { action: 'scan' });
+
+            if (scanResponse.success && scanResponse.captchas.length > 0) {
+                currentCaptcha = scanResponse.bestCaptcha;
+                updateCaptchaInfo(scanResponse.bestCaptcha);
+                elements.btnRecognize.disabled = false;
+                showSuccess('已自动定位验证码');
+            } else {
+                // 扫描没找到，使用原本规则应用的结果
+                updateCaptchaInfo(response.captcha);
+                elements.btnRecognize.disabled = false;
+                showSuccess('已自动定位验证码');
+            }
         } else {
             showError('规则匹配失败，请重新选择');
             hideRuleSection();
@@ -290,12 +298,9 @@ async function deleteSiteRule() {
 }
 
 /**
- * 扫描页面
+ * 扫描页面（内部函数）
  */
 async function scanPage() {
-    setStatus('scanning', '扫描中...');
-    elements.btnScan.disabled = true;
-
     try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -309,31 +314,23 @@ async function scanPage() {
             if (response.captchas.length > 0) {
                 currentCaptcha = response.bestCaptcha;
                 updateCaptchaInfo(response.bestCaptcha);
-                elements.btnRecognize.disabled = false;
-                showSuccess(`找到 ${response.captchas.length} 个验证码`);
-            } else {
-                hideCaptchaInfo();
-                elements.btnRecognize.disabled = true;
-                showError('未检测到验证码');
+                return true;
             }
-        } else {
-            throw new Error(response.error || '扫描失败');
         }
+        return false;
     } catch (error) {
-        showError(error.message);
-    } finally {
-        setStatus('idle', '就绪');
-        elements.btnScan.disabled = false;
+        console.error('扫描失败:', error);
+        return false;
     }
 }
 
 /**
- * 识别验证码
+ * 识别验证码（优先使用已保存规则，否则自动扫描）
  */
 async function recognizeCaptcha() {
     setStatus('recognizing', '识别中...');
     elements.btnRecognize.disabled = true;
-    elements.btnScan.disabled = true;
+    elements.btnManual.disabled = true;
 
     try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -342,6 +339,41 @@ async function recognizeCaptcha() {
             throw new Error('无法获取当前标签页');
         }
 
+        let captchaReady = false;
+
+        // 如果有已保存的规则，优先使用规则
+        if (currentSiteRule && currentSiteRule.selector) {
+            setStatus('scanning', '应用规则...');
+            const ruleResponse = await chrome.tabs.sendMessage(tab.id, {
+                action: 'applySiteRule',
+                selector: currentSiteRule.selector
+            });
+
+            if (ruleResponse.success) {
+                currentCaptcha = ruleResponse.captcha;
+                updateCaptchaInfo(ruleResponse.captcha);
+                captchaReady = true;
+            }
+        }
+
+        // 如果规则不可用，尝试自动扫描
+        if (!captchaReady) {
+            setStatus('scanning', '扫描中...');
+            const scanResponse = await chrome.tabs.sendMessage(tab.id, { action: 'scan' });
+
+            if (scanResponse.success && scanResponse.captchas.length > 0) {
+                currentCaptcha = scanResponse.bestCaptcha;
+                updateCaptchaInfo(scanResponse.bestCaptcha);
+                captchaReady = true;
+            }
+        }
+
+        if (!captchaReady) {
+            throw new Error('未检测到验证码，请使用"选择元素"手动选择');
+        }
+
+        // 执行识别
+        setStatus('recognizing', '识别中...');
         const response = await chrome.tabs.sendMessage(tab.id, {
             action: 'recognize',
             captchaId: currentCaptcha?.id
@@ -359,7 +391,7 @@ async function recognizeCaptcha() {
     } finally {
         setStatus('idle', '就绪');
         elements.btnRecognize.disabled = false;
-        elements.btnScan.disabled = false;
+        elements.btnManual.disabled = false;
     }
 }
 
@@ -450,7 +482,7 @@ async function previewCaptcha() {
  * @param {string} text - 状态文本
  */
 function setStatus(status, text) {
-    elements.statusIndicator.className = `status-indicator status-${status}`;
+    elements.statusIndicator.className = `status - indicator status - ${status} `;
     elements.statusText.textContent = text;
 }
 
@@ -466,7 +498,7 @@ function updateCaptchaInfo(captcha) {
 
     elements.captchaSection.classList.remove('hidden');
     elements.captchaType.textContent = captcha.type.toUpperCase();
-    elements.captchaConfidence.textContent = `${captcha.confidence}%`;
+    elements.captchaConfidence.textContent = `${captcha.confidence}% `;
 
     // 根据置信度设置颜色
     if (captcha.confidence >= 70) {
@@ -494,7 +526,7 @@ function hideCaptchaInfo() {
 function showResult(text, elapsed) {
     elements.resultSection.classList.remove('hidden');
     elements.resultText.textContent = text;
-    elements.resultTime.textContent = `耗时: ${(elapsed / 1000).toFixed(2)}s`;
+    elements.resultTime.textContent = `耗时: ${(elapsed / 1000).toFixed(2)} s`;
     elements.fillSection.classList.remove('hidden');
 }
 
