@@ -2,6 +2,8 @@
 
 一个功能完整的Chrome扩展程序，使用AI大模型自动识别和填充验证码。
 
+![alt text](https://im.gurl.eu.org/file/AgACAgEAAxkDAAEBV5NpTRN5EDFxg4VtsP4T0xOdYxQbegACLQxrG_gcaUY33-2uJikFegEAAwIAA3cAAzYE.png)
+
 ## ✨ 功能特性
 
 - 🤖 **多AI模型支持**：支持OpenAI、Claude、Google Gemini等
@@ -32,10 +34,11 @@ auto_captcha/
 
 ## 🚀 安装使用
 
-1. 打开Chrome浏览器，访问 `chrome://extensions/`
-2. 开启右上角的「开发者模式」
-3. 点击「加载已解压的扩展程序」
-4. 选择 `auto_captcha` 文件夹
+1. git clone 此项目
+2. 打开Chrome浏览器，访问 `chrome://extensions/`
+3. 开启右上角的「开发者模式」
+4. 点击「加载已解压的扩展程序」
+5. 选择 `auto_captcha` 文件夹
 
 ## ⚙️ 配置API
 
