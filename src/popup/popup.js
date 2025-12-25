@@ -383,6 +383,17 @@ async function recognizeCaptcha() {
             recognizedText = response.text;
             showResult(response.text, response.elapsed);
             showSuccess('识别成功');
+
+            // 检查是否启用了自动填充
+            try {
+                const settingsResponse = await chrome.runtime.sendMessage({ action: 'getSettings' });
+                if (settingsResponse.success && settingsResponse.settings.autoFill) {
+                    // 延迟一小段时间让用户看到结果，然后自动填充
+                    setTimeout(() => fillCaptcha(), 300);
+                }
+            } catch (e) {
+                console.error('获取设置失败:', e);
+            }
         } else {
             throw new Error(response.error || '识别失败');
         }
