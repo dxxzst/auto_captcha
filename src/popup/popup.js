@@ -523,7 +523,7 @@ async function previewCaptcha() {
  * @param {string} text - 状态文本
  */
 function setStatus(status, text) {
-    elements.statusIndicator.className = `status - indicator status - ${status} `;
+    elements.statusIndicator.className = `status-indicator status-${status}`;
     elements.statusText.textContent = text;
 }
 

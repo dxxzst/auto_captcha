@@ -17,8 +17,8 @@ export class OpenAICompatibleAdapter {
         this.config = {
             baseUrl: 'https://api.openai.com/v1',
             model: 'gpt-4o',
-            maxTokens: 100,
-            temperature: 0.1,
+            maxTokens: 500,
+            temperature: 1,
             ...config
         };
 

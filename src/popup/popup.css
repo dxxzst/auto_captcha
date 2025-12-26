@@ -90,6 +90,8 @@ body {
   padding: 10px 12px;
   background: var(--bg-secondary);
   border-radius: var(--border-radius);
+  flex-wrap: nowrap;
+  gap: 10px;
 }
 
 .status-indicator {
@@ -97,6 +99,13 @@ body {
   align-items: center;
   gap: 8px;
   font-size: 13px;
+  max-width: 150px;
+}
+
+#status-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status-dot {
@@ -134,15 +143,21 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .config-label {
   color: var(--text-secondary);
+  flex-shrink: 0;
 }
 
 .config-name {
   color: var(--primary-color);
   font-weight: 500;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .config-name.not-configured {
