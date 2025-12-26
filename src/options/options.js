@@ -245,8 +245,8 @@ function openPresetDialog(preset) {
     elements.configBaseUrl.value = template.baseUrl;
     elements.configApiKey.value = '';
     elements.configModel.value = template.model || '';
-    elements.configMaxTokens.value = template.maxTokens || 100;
-    elements.configTemperature.value = template.temperature || 0.1;
+    elements.configMaxTokens.value = template.maxTokens || 500;
+    elements.configTemperature.value = template.temperature || 1;
     elements.configCustomPrompt.value = '';
 
     elements.configDialog.classList.remove('hidden');
@@ -274,8 +274,8 @@ async function editConfig(configId) {
     elements.configBaseUrl.value = config.baseUrl;
     elements.configApiKey.value = config.apiKey;
     elements.configModel.value = config.model;
-    elements.configMaxTokens.value = config.maxTokens || 100;
-    elements.configTemperature.value = config.temperature || 0.1;
+    elements.configMaxTokens.value = config.maxTokens || 500;
+    elements.configTemperature.value = config.temperature || 1;
     elements.configCustomPrompt.value = config.customPrompt || '';
 
     elements.configDialog.classList.remove('hidden');
@@ -377,8 +377,8 @@ function getFormConfig() {
         baseUrl: elements.configBaseUrl.value.trim(),
         apiKey: elements.configApiKey.value.trim(),
         model: elements.configModel.value.trim(),
-        maxTokens: parseInt(elements.configMaxTokens.value) || 100,
-        temperature: parseFloat(elements.configTemperature.value) || 0.1,
+        maxTokens: parseInt(elements.configMaxTokens.value) || 500,
+        temperature: parseFloat(elements.configTemperature.value) || 1,
         customPrompt: elements.configCustomPrompt.value.trim()
     };
 }

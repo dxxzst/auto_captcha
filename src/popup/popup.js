@@ -2,6 +2,17 @@
  * Popup 弹出窗口脚本
  */
 
+// 调试模式
+let debugMode = false;
+
+// 日志工具
+const logger = {
+    debug: (msg, ...args) => { if (debugMode) console.log('[AI Captcha Popup]', msg, ...args); },
+    info: (msg, ...args) => { if (debugMode) console.log('[AI Captcha Popup]', msg, ...args); },
+    warn: (msg, ...args) => { if (debugMode) console.warn('[AI Captcha Popup]', msg, ...args); },
+    error: (msg, ...args) => { console.error('[AI Captcha Popup]', msg, ...args); }  // 错误始终输出
+};
+
 // 状态
 let currentCaptcha = null;
 let recognizedText = null;
@@ -41,6 +52,14 @@ let currentSiteRule = null;
  * 初始化
  */
 async function init() {
+    // 初始化调试模式
+    try {
+        const settingsResponse = await chrome.runtime.sendMessage({ action: 'getSettings' });
+        if (settingsResponse.success && settingsResponse.settings) {
+            debugMode = settingsResponse.settings.debugMode || false;
+        }
+    } catch (e) { /* 忽略 */ }
+
     // 获取DOM元素
     elements.statusIndicator = document.getElementById('status-indicator');
     elements.statusText = document.getElementById('status-text');
@@ -97,7 +116,7 @@ async function loadConfig() {
             elements.configName.classList.add('not-configured');
         }
     } catch (error) {
-        console.error('加载配置失败:', error);
+        logger.error('加载配置失败:', error);
         elements.configName.textContent = '加载失败';
     }
 }
@@ -125,7 +144,7 @@ async function checkPageStatus() {
         }
     } catch (error) {
         // 内容脚本可能未加载
-        console.log('页面状态检查失败:', error.message);
+        logger.debug('页面状态检查失败:', error.message);
     }
 }
 
@@ -160,7 +179,7 @@ async function checkSiteRuleAndStatus() {
             await checkPageStatus();
         }
     } catch (error) {
-        console.error('检查网站规则失败:', error);
+        logger.error('检查网站规则失败:', error);
         await checkPageStatus();
     }
 }
@@ -211,7 +230,7 @@ async function applySiteRule(tabId, selector) {
             hideRuleSection();
         }
     } catch (error) {
-        console.error('应用规则失败:', error);
+        logger.error('应用规则失败:', error);
     }
 }
 
@@ -319,7 +338,7 @@ async function scanPage() {
         }
         return false;
     } catch (error) {
-        console.error('扫描失败:', error);
+        logger.error('扫描失败:', error);
         return false;
     }
 }
@@ -392,7 +411,7 @@ async function recognizeCaptcha() {
                     setTimeout(() => fillCaptcha(), 300);
                 }
             } catch (e) {
-                console.error('获取设置失败:', e);
+                logger.error('获取设置失败:', e);
             }
         } else {
             throw new Error(response.error || '识别失败');
@@ -425,10 +444,21 @@ async function fillCaptcha() {
             throw new Error('无法获取当前标签页');
         }
 
+        // 获取设置
+        let autoSubmit = false;
+        try {
+            const settingsResponse = await chrome.runtime.sendMessage({ action: 'getSettings' });
+            if (settingsResponse.success && settingsResponse.settings) {
+                autoSubmit = settingsResponse.settings.autoSubmit || false;
+            }
+        } catch (e) {
+            logger.error('获取设置失败:', e);
+        }
+
         const response = await chrome.tabs.sendMessage(tab.id, {
             action: 'fill',
             text: recognizedText,
-            options: { simulate: true }
+            options: { simulate: true, autoSubmit }
         });
 
         if (response.success) {

@@ -23,8 +23,8 @@ export const PRESET_TEMPLATES = {
         type: API_TYPES.OPENAI_COMPATIBLE,
         baseUrl: 'https://api.openai.com/v1',
         model: 'gpt-4o',
-        maxTokens: 100,
-        temperature: 0.1
+        maxTokens: 500,
+        temperature: 1
     },
     claude: {
         name: 'Claude',
@@ -38,8 +38,8 @@ export const PRESET_TEMPLATES = {
         type: API_TYPES.OPENAI_COMPATIBLE,
         baseUrl: 'https://YOUR_RESOURCE.openai.azure.com/openai/deployments/YOUR_DEPLOYMENT',
         model: 'gpt-4o',
-        maxTokens: 100,
-        temperature: 0.1,
+        maxTokens: 500,
+        temperature: 1,
         customHeaders: {
             'api-key': '' // Azure使用api-key头
         }
@@ -55,8 +55,8 @@ export const PRESET_TEMPLATES = {
         type: API_TYPES.OPENAI_COMPATIBLE,
         baseUrl: '',
         model: '',
-        maxTokens: 100,
-        temperature: 0.1
+        maxTokens: 500,
+        temperature: 1
     },
     custom_claude: {
         name: '自定义(Claude格式)',

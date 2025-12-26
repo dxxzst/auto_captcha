@@ -71,8 +71,8 @@ export class GeminiAdapter {
                 }
             ],
             generationConfig: {
-                temperature: 0.1,
-                maxOutputTokens: 100
+                temperature: 1,
+                maxOutputTokens: 500
             }
         };
 
@@ -146,8 +146,8 @@ export class GeminiAdapter {
                 }
             ],
             generationConfig: {
-                temperature: 0.1,
-                maxOutputTokens: 10
+                temperature: 1,
+                maxOutputTokens: 500
             }
         };
 

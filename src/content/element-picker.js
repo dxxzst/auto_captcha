@@ -6,6 +6,10 @@
 (function () {
     'use strict';
 
+    // 调试模式（从父上下文继承，如果存在的话）
+    const debugMode = window.__captchaDebugMode || false;
+    const log = (msg) => { if (debugMode) console.log('[AI Captcha]', msg); };
+
     // 选择器状态
     let isActive = false;
     let hoveredElement = null;
@@ -27,7 +31,7 @@
         createTooltip();
         addEventListeners();
 
-        console.log('[AI Captcha] 元素选择器已启动，请点击验证码元素');
+        log('元素选择器已启动，请点击验证码元素');
     }
 
     /**
@@ -44,7 +48,7 @@
         removeTooltip();
         clearHighlight();
 
-        console.log('[AI Captcha] 元素选择器已停止');
+        log('元素选择器已停止');
     }
 
     /**

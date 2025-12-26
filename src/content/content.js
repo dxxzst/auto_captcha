@@ -7,11 +7,36 @@
     'use strict';
 
     // ==================== 日志模块 ====================
+    let debugMode = false;
+
+    // 初始化时从 storage 读取 debugMode 设置
+    async function initDebugMode() {
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'getSettings' });
+            if (response.success && response.settings) {
+                debugMode = response.settings.debugMode || false;
+                // 同时设置全局变量供 element-picker.js 使用
+                window.__captchaDebugMode = debugMode;
+            }
+        } catch (e) {
+            // 忽略错误，保持默认关闭
+        }
+    }
+
     const logger = {
-        debug: (msg, ...args) => console.log('[AI Captcha]', msg, ...args),
-        info: (msg, ...args) => console.log('[AI Captcha]', msg, ...args),
-        warn: (msg, ...args) => console.warn('[AI Captcha]', msg, ...args),
-        error: (msg, ...args) => console.error('[AI Captcha]', msg, ...args)
+        debug: (msg, ...args) => {
+            if (debugMode) console.log('[AI Captcha]', msg, ...args);
+        },
+        info: (msg, ...args) => {
+            if (debugMode) console.log('[AI Captcha]', msg, ...args);
+        },
+        warn: (msg, ...args) => {
+            if (debugMode) console.warn('[AI Captcha]', msg, ...args);
+        },
+        error: (msg, ...args) => {
+            // 错误日志始终输出
+            console.error('[AI Captcha]', msg, ...args);
+        }
     };
 
     // ==================== 验证码检测器 ====================
@@ -452,7 +477,7 @@
         }
 
         async fill(inputElement, text, options = {}) {
-            const { simulate = true } = options;
+            const { simulate = true, autoSubmit = false } = options;
 
             try {
                 if (!inputElement) throw new Error('未找到输入框');
@@ -472,10 +497,57 @@
                 this.lastFilledInput = inputElement;
                 this.highlightInput(inputElement);
 
+                // 自动提交表单
+                if (autoSubmit) {
+                    logger.info('自动提交表单...');
+                    await this.submitForm(inputElement);
+                }
+
                 return true;
             } catch (error) {
                 logger.error('填充失败', error);
                 return false;
+            }
+        }
+
+        /**
+         * 提交表单
+         */
+        async submitForm(input) {
+            // 查找表单
+            const form = input.closest('form');
+
+            if (form) {
+                logger.info('找到表单，提交中...');
+                // 触发submit事件
+                const submitEvent = new Event('submit', {
+                    bubbles: true,
+                    cancelable: true
+                });
+
+                const prevented = !form.dispatchEvent(submitEvent);
+
+                if (!prevented) {
+                    form.submit();
+                }
+            } else {
+                // 尝试查找提交按钮
+                logger.info('未找到表单，尝试查找提交按钮...');
+                const parent = input.parentElement?.parentElement?.parentElement || document;
+                const submitBtn = parent.querySelector(
+                    'button[type="submit"], input[type="submit"], button:not([type])'
+                );
+
+                if (submitBtn) {
+                    logger.info('点击提交按钮');
+                    submitBtn.click();
+                } else {
+                    // 模拟按回车键
+                    logger.info('模拟回车键提交');
+                    this.dispatchKeyEvent(input, 'keydown', 'Enter');
+                    this.dispatchKeyEvent(input, 'keypress', 'Enter');
+                    this.dispatchKeyEvent(input, 'keyup', 'Enter');
+                }
             }
         }
 
@@ -526,6 +598,8 @@
     let isProcessing = false;
 
     function init() {
+        // 初始化调试模式设置
+        initDebugMode();
         logger.info('内容脚本已加载');
         chrome.runtime.onMessage.addListener(handleMessage);
         setTimeout(() => scanPage(), 1000);
@@ -635,13 +709,15 @@
             });
 
             // 在控制台输出图像预览（可以在浏览器控制台查看）
-            console.log('%c[AI Captcha] 捕获的验证码图像预览：', 'color: #4CAF50; font-weight: bold');
-            console.log('%c ', `
-                background: url(${imageData}) no-repeat;
-                background-size: contain;
-                padding: 50px 100px;
-                border: 2px solid #4CAF50;
-            `);
+            if (debugMode) {
+                console.log('%c[AI Captcha] 捕获的验证码图像预览：', 'color: #4CAF50; font-weight: bold');
+                console.log('%c ', `
+                    background: url(${imageData}) no-repeat;
+                    background-size: contain;
+                    padding: 50px 100px;
+                    border: 2px solid #4CAF50;
+                `);
+            }
 
             const response = await chrome.runtime.sendMessage({
                 action: 'recognizeCaptcha',
