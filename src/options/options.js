@@ -98,9 +98,7 @@ function bindEvents() {
 
     // 对话框
     elements.btnCloseDialog.addEventListener('click', closeDialog);
-    elements.configDialog.addEventListener('click', (e) => {
-        if (e.target === elements.configDialog) closeDialog();
-    });
+    // 注意：不再监听点击遮罩层关闭，防止误操作
     elements.btnToggleKey.addEventListener('click', toggleApiKeyVisibility);
     elements.btnTestConnection.addEventListener('click', testConnection);
     elements.btnSaveConfig.addEventListener('click', saveConfig);
